@@ -4,24 +4,35 @@ span.kwh-highlight {
   padding: 0 1px;
 }
 
+.kwh-marker-target-hover {
+  outline: 2px solid rgba(255, 255, 255, 0.9) !important;
+  outline-offset: 2px !important;
+}
+
 #kwh-scroll-marker-container[data-kwh-root] {
-  contain: layout style paint;
+  contain: layout style;
   height: 100vh;
   pointer-events: none;
   position: fixed;
   right: 0;
   top: 0;
-  width: 14px;
+  width: 64px;
   z-index: 2147483647;
 }
 
 #kwh-scroll-marker-container[data-kwh-root] .kwh-scroll-marker {
   border-radius: 1px 0 0 1px;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
   height: 2px;
+  pointer-events: auto;
   position: absolute;
   right: 0;
-  width: 14px;
+  width: 56px;
+}
+
+#kwh-scroll-marker-container[data-kwh-root] .kwh-scroll-marker:hover {
+  min-height: 5px;
 }
 
 .kw-extension-page {
@@ -75,11 +86,12 @@ span.kwh-highlight {
   align-items: end;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+  grid-template-columns: minmax(180px, 1fr) minmax(320px, 1.3fr) minmax(320px, 1.3fr) auto;
   padding: 16px;
 }
 
-.kw-add-form label {
+.kw-add-form label,
+.kw-field-group {
   color: #4a515b;
   display: grid;
   gap: 6px;
@@ -96,11 +108,50 @@ span.kwh-highlight {
   width: 100%;
 }
 
+.kw-color-editor {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 48px repeat(3, minmax(64px, 1fr));
+}
+
+.kw-color-editor label {
+  align-items: center;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: 16px minmax(0, 1fr);
+}
+
+.kw-color-editor label span {
+  color: #68707c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.kw-color-editor input[type="color"] {
+  background: transparent;
+  border: 1px solid #c8ced8;
+  border-radius: 6px;
+  cursor: pointer;
+  height: 36px;
+  padding: 3px;
+  width: 48px;
+}
+
+.kw-color-editor input[type="number"] {
+  border: 1px solid #c8ced8;
+  border-radius: 6px;
+  font: inherit;
+  min-height: 36px;
+  padding: 7px 8px;
+  width: 100%;
+}
+
 .kw-list-header,
 .kw-keyword-row {
   display: grid;
   gap: 12px;
-  grid-template-columns: 56px minmax(180px, 1fr) minmax(180px, 1fr) 64px;
+  grid-template-columns: 56px minmax(160px, 1fr) minmax(320px, 1.3fr) minmax(320px, 1.3fr) 64px;
 }
 
 .kw-list-header {
@@ -224,6 +275,15 @@ span.kwh-highlight {
   gap: 10px;
   grid-template-columns: 16px minmax(0, 1fr) auto;
   padding: 10px 12px;
+}
+
+.kw-count-heading {
+  background: #f3f5f8;
+  border-bottom: 1px solid #edf0f4;
+  color: #68707c;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 8px 12px;
 }
 
 .kw-count-row:last-child {

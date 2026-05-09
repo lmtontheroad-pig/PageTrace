@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>关键词高亮设置</title>
+    <link rel="stylesheet" href="../styles/extension.css">
+  </head>
+  <body class="kw-extension-page kw-options-page">
+    <main class="kw-page-shell">
+      <header class="kw-page-header">
+        <div>
+          <h1>关键词设置</h1>
+          <p>管理匹配词、颜色和启用状态。</p>
+        </div>
+        <button id="reset-defaults" class="kw-button kw-button-secondary" type="button">恢复默认</button>
+      </header>
+
+      <section class="kw-panel">
+        <form id="add-keyword-form" class="kw-add-form">
+          <label>
+            <span>关键词</span>
+            <input id="new-word" type="text" autocomplete="off" placeholder="Double Penetration">
+          </label>
+          <div class="kw-field-group">
+            <span>主标记颜色</span>
+            <div class="kw-color-editor" data-color-editor data-color-role="primary">
+              <input id="new-color-picker" class="keyword-color-picker" type="color" value="#ffff00" aria-label="选择颜色">
+              <label>
+                <span>R</span>
+                <input id="new-color-r" class="keyword-color-r" type="number" min="0" max="255" step="1" value="255">
+              </label>
+              <label>
+                <span>G</span>
+                <input id="new-color-g" class="keyword-color-g" type="number" min="0" max="255" step="1" value="255">
+              </label>
+              <label>
+                <span>B</span>
+                <input id="new-color-b" class="keyword-color-b" type="number" min="0" max="255" step="1" value="0">
+              </label>
+              <input id="new-color" class="keyword-color-value" type="hidden" value="rgb(255, 255, 0)">
+            </div>
+          </div>
+          <div class="kw-field-group">
+            <span>弱语义颜色</span>
+            <div class="kw-color-editor" data-color-editor data-color-role="semantic">
+              <input id="new-semantic-color-picker" class="keyword-color-picker" type="color" value="#ffff00" aria-label="选择弱语义颜色">
+              <label>
+                <span>R</span>
+                <input id="new-semantic-color-r" class="keyword-color-r" type="number" min="0" max="255" step="1" value="255">
+              </label>
+              <label>
+                <span>G</span>
+                <input id="new-semantic-color-g" class="keyword-color-g" type="number" min="0" max="255" step="1" value="255">
+              </label>
+              <label>
+                <span>B</span>
+                <input id="new-semantic-color-b" class="keyword-color-b" type="number" min="0" max="255" step="1" value="0">
+              </label>
+              <input id="new-semantic-color" class="keyword-color-value" type="hidden" value="rgb(255, 255, 0)">
+            </div>
+          </div>
+          <button class="kw-button" type="submit">新增</button>
+        </form>
+      </section>
+
+      <section class="kw-panel">
+        <div class="kw-list-header">
+          <span>启用</span>
+          <span>关键词</span>
+          <span>主标记颜色</span>
+          <span>弱语义颜色</span>
+          <span>操作</span>
+        </div>
+        <div id="keyword-list" class="kw-keyword-list"></div>
+      </section>
+
+      <footer class="kw-footer">
+        <span id="status-text" role="status"></span>
+        <button id="save-settings" class="kw-button" type="button">保存配置</button>
+      </footer>
+    </main>
+
+    <template id="keyword-row-template">
+      <div class="kw-keyword-row">
+        <label class="kw-checkbox-cell">
+          <input class="keyword-enabled" type="checkbox">
+        </label>
+        <input class="keyword-word" type="text" autocomplete="off">
+        <div class="kw-color-editor" data-color-editor data-color-role="primary">
+          <input class="keyword-color-picker" type="color" aria-label="选择颜色">
+          <label>
+            <span>R</span>
+            <input class="keyword-color-r" type="number" min="0" max="255" step="1">
+          </label>
+          <label>
+            <span>G</span>
+            <input class="keyword-color-g" type="number" min="0" max="255" step="1">
+          </label>
+          <label>
+            <span>B</span>
+            <input class="keyword-color-b" type="number" min="0" max="255" step="1">
+          </label>
+          <input class="keyword-color-value" type="hidden">
+        </div>
+        <div class="kw-color-editor" data-color-editor data-color-role="semantic">
+          <input class="keyword-color-picker" type="color" aria-label="选择弱语义颜色">
+          <label>
+            <span>R</span>
+            <input class="keyword-color-r" type="number" min="0" max="255" step="1">
+          </label>
+          <label>
+            <span>G</span>
+            <input class="keyword-color-g" type="number" min="0" max="255" step="1">
+          </label>
+          <label>
+            <span>B</span>
+            <input class="keyword-color-b" type="number" min="0" max="255" step="1">
+          </label>
+          <input class="keyword-color-value" type="hidden">
+        </div>
+        <button class="kw-icon-button keyword-delete" type="button" title="删除" aria-label="删除">×</button>
+      </div>
+    </template>
+
+    <script src="../common/shared.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>

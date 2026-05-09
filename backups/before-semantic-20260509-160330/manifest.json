@@ -6,18 +6,18 @@
   "description": "Highlights configured keywords on matched pages and adds right-side scroll markers.",
   "permissions": ["storage"],
   "background": {
-    "service_worker": "src/background/service-worker.js"
+    "service_worker": "src/background/background.js"
   },
   "action": {
     "default_title": "PageTrace",
-    "default_popup": "src/pages/popup.html"
+    "default_popup": "src/popup/popup.html"
   },
-  "options_page": "src/pages/options.html",
+  "options_page": "src/options/options.html",
   "content_scripts": [
     {
       "matches": ["*://www.pornhub.com/*"],
-      "js": ["src/common/shared.js", "src/content/content.js"],
-      "css": ["src/styles/extension.css"],
+      "js": ["src/shared/shared.js", "src/content/content.js"],
+      "css": ["src/styles/styles.css"],
       "run_at": "document_idle"
     }
   ]

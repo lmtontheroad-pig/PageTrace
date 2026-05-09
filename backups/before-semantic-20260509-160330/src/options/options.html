@@ -22,10 +22,25 @@
             <span>关键词</span>
             <input id="new-word" type="text" autocomplete="off" placeholder="Double Penetration">
           </label>
-          <label>
+          <div class="kw-field-group">
             <span>颜色</span>
-            <input id="new-color" type="text" autocomplete="off" value="rgba(255, 255, 0, 0.6)">
-          </label>
+            <div class="kw-color-editor" data-color-editor>
+              <input id="new-color-picker" class="keyword-color-picker" type="color" value="#ffff00" aria-label="选择颜色">
+              <label>
+                <span>R</span>
+                <input id="new-color-r" class="keyword-color-r" type="number" min="0" max="255" step="1" value="255">
+              </label>
+              <label>
+                <span>G</span>
+                <input id="new-color-g" class="keyword-color-g" type="number" min="0" max="255" step="1" value="255">
+              </label>
+              <label>
+                <span>B</span>
+                <input id="new-color-b" class="keyword-color-b" type="number" min="0" max="255" step="1" value="0">
+              </label>
+              <input id="new-color" class="keyword-color-value" type="hidden" value="rgb(255, 255, 0)">
+            </div>
+          </div>
           <button class="kw-button" type="submit">新增</button>
         </form>
       </section>
@@ -52,7 +67,22 @@
           <input class="keyword-enabled" type="checkbox">
         </label>
         <input class="keyword-word" type="text" autocomplete="off">
-        <input class="keyword-color" type="text" autocomplete="off">
+        <div class="kw-color-editor" data-color-editor>
+          <input class="keyword-color-picker" type="color" aria-label="选择颜色">
+          <label>
+            <span>R</span>
+            <input class="keyword-color-r" type="number" min="0" max="255" step="1">
+          </label>
+          <label>
+            <span>G</span>
+            <input class="keyword-color-g" type="number" min="0" max="255" step="1">
+          </label>
+          <label>
+            <span>B</span>
+            <input class="keyword-color-b" type="number" min="0" max="255" step="1">
+          </label>
+          <input class="keyword-color-value" type="hidden">
+        </div>
         <button class="kw-icon-button keyword-delete" type="button" title="删除" aria-label="删除">×</button>
       </div>
     </template>

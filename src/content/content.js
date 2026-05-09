@@ -9,6 +9,62 @@
     subtree: true,
     characterData: true
   };
+  const SEMANTIC_CONTAINER_SELECTOR = [
+    "[data-video-id]",
+    "[data-video-vkey]",
+    "li.pcVideoListItem",
+    "li.videoblock",
+    "div.videoblock",
+    ".pcVideoListItem",
+    ".videoBox"
+  ].join(",");
+  const SEMANTIC_SKIP_CONTAINER_SELECTOR = [
+    "header",
+    "nav",
+    "footer",
+    "[role='navigation']",
+    "[class*='menu']",
+    "[class*='nav']",
+    "[class*='dropdown']",
+    "[class*='category']"
+  ].join(",");
+  const SEMANTIC_TITLE_SELECTOR = [
+    "h1",
+    "h2",
+    "h3",
+    "a[title]",
+    "a[aria-label]",
+    "[class*='title']"
+  ].join(",");
+  const SEMANTIC_TAG_SELECTOR = [
+    "a[href*='/tags/']",
+    "a[href*='tag=']",
+    "[class*='tag'] a",
+    "[class*='tags'] a"
+  ].join(",");
+  const SEMANTIC_CATEGORY_SELECTOR = [
+    "a[href*='/categories/']",
+    "a[href*='/category/']",
+    "a[href*='?c=']",
+    "a[href*='&c=']",
+    "[class*='category'] a",
+    "[class*='categories'] a"
+  ].join(",");
+  const SEMANTIC_CHANNEL_SELECTOR = [
+    "a[href*='/channels/']",
+    "a[href*='/channel/']",
+    "a[href*='/model/']",
+    "a[href*='/pornstar/']",
+    "[class*='channel'] a",
+    "[class*='model'] a",
+    "[class*='pornstar'] a"
+  ].join(",");
+  const SEMANTIC_PLAYLIST_SELECTOR = [
+    "a[href*='/playlist/']",
+    "a[href*='/playlists/']",
+    "[class*='playlist'] a"
+  ].join(",");
+  const MARKER_HOVER_CLASS = "kwh-marker-target-hover";
 
   let settings = helper.normalizeSettings();
   let matcher = null;
@@ -76,44 +132,77 @@
       return NodeFilter.FILTER_REJECT;
     }
 
-    matcher.regex.lastIndex = 0;
-    const matched = matcher.regex.test(node.nodeValue);
-    matcher.regex.lastIndex = 0;
+    const matched = helper.collectKeywordMatches(node.nodeValue, matcher).length > 0;
     return matched ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
   }
 
   function highlightTextNode(node) {
     const originalText = node.nodeValue;
+    const matches = helper.collectKeywordMatches(originalText, matcher);
+    if (matches.length === 0) return;
+
     const fragment = document.createDocumentFragment();
     let lastIndex = 0;
-    let didMatch = false;
-    let match;
 
-    matcher.regex.lastIndex = 0;
-    while ((match = matcher.regex.exec(originalText)) !== null) {
-      if (match.index > lastIndex) {
-        fragment.appendChild(document.createTextNode(originalText.slice(lastIndex, match.index)));
+    matches.forEach((match) => {
+      if (match.start > lastIndex) {
+        fragment.appendChild(document.createTextNode(originalText.slice(lastIndex, match.start)));
       }
 
-      const keyword = helper.keywordFromMatch(match, matcher.keywords);
+      const keyword = match.keyword;
       if (keyword) {
         const span = document.createElement("span");
         span.className = helper.HIGHLIGHT_CLASS;
         span.dataset.kwhKeywordId = keyword.id;
         span.dataset.kwhKeyword = keyword.word;
+        span.dataset.kwhKeywordPriority = String(keyword.priority || 0);
+        span.dataset.kwhMatchLength = String(match.length);
+        if (match.extraKeywords.length > 0) {
+          span.dataset.kwhExtraKeywordIds = match.extraKeywords.map((item) => item.id).join(",");
+        }
         span.style.backgroundColor = keyword.color;
-        span.textContent = match[0];
+        span.textContent = match.text;
         fragment.appendChild(span);
-        didMatch = true;
       } else {
-        fragment.appendChild(document.createTextNode(match[0]));
+        fragment.appendChild(document.createTextNode(match.text));
       }
 
-      lastIndex = matcher.regex.lastIndex;
-      if (match.index === matcher.regex.lastIndex) matcher.regex.lastIndex += 1;
-    }
+      lastIndex = match.end;
+    });
 
-    if (!didMatch) return;
+    if (lastIndex < originalText.length) {
+      fragment.appendChild(document.createTextNode(originalText.slice(lastIndex)));
+    }
+    node.replaceWith(fragment);
+  }
+
+  function highlightSemanticTextNode(node, semanticMatcher) {
+    const originalText = node.nodeValue;
+    const matches = helper.collectKeywordMatches(originalText, semanticMatcher);
+    if (matches.length === 0) return;
+
+    const fragment = document.createDocumentFragment();
+    let lastIndex = 0;
+
+    matches.forEach((match) => {
+      if (match.start > lastIndex) {
+        fragment.appendChild(document.createTextNode(originalText.slice(lastIndex, match.start)));
+      }
+
+      const semanticPhrase = match.keyword;
+      const span = document.createElement("span");
+      span.className = helper.HIGHLIGHT_CLASS;
+      span.dataset.kwhSemanticPhrase = "true";
+      span.dataset.kwhSemanticRuleId = semanticPhrase.semanticRuleId || "";
+      span.dataset.kwhSemanticRuleName = semanticPhrase.semanticRuleName || "";
+      span.dataset.kwhSemanticPhraseText = semanticPhrase.word || "";
+      span.style.backgroundColor = semanticPhrase.color;
+      span.textContent = match.text;
+      fragment.appendChild(span);
+
+      lastIndex = match.end;
+    });
+
     if (lastIndex < originalText.length) {
       fragment.appendChild(document.createTextNode(originalText.slice(lastIndex)));
     }
@@ -149,6 +238,233 @@
     });
   }
 
+  function clearSemanticPhraseHighlights(rootNode) {
+    const root = rootNode && rootNode.querySelectorAll ? rootNode : document;
+    const spans = Array.from(root.querySelectorAll(`span.${helper.HIGHLIGHT_CLASS}[data-kwh-semantic-phrase="true"]`));
+    spans.forEach((span) => {
+      const parent = span.parentNode;
+      span.replaceWith(document.createTextNode(span.textContent || ""));
+      if (parent && typeof parent.normalize === "function") parent.normalize();
+    });
+  }
+
+  function hasEnabledSemanticRules() {
+    return Array.isArray(settings.semanticRules)
+      && settings.semanticRules.some((rule) => rule.enabled !== false);
+  }
+
+  function closestSemanticContainer(node) {
+    const element = isElement(node) ? node : node && node.parentElement;
+    if (!element) return null;
+    const container = element.closest(SEMANTIC_CONTAINER_SELECTOR);
+    return isSemanticContainerAllowed(container) ? container : null;
+  }
+
+  function isSemanticContainerAllowed(container) {
+    if (!container || isOwnNode(container) || closestSkippableElement(container)) return false;
+    if (container.closest(SEMANTIC_SKIP_CONTAINER_SELECTOR)) return false;
+
+    const rect = container.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      const viewportWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+      if (rect.width > viewportWidth * 0.7) return false;
+      if (rect.height > 700) return false;
+    }
+
+    return true;
+  }
+
+  function textFromElement(element) {
+    if (!element) return "";
+    return [
+      element.getAttribute("title") || "",
+      element.getAttribute("aria-label") || "",
+      element.textContent || ""
+    ].join(" ");
+  }
+
+  function urlToSignal(value) {
+    if (!value) return "";
+    try {
+      const url = new URL(value, window.location.href);
+      return decodeURIComponent([
+        url.pathname,
+        url.search
+      ].join(" "))
+        .replace(/[/?=&_+-]+/g, " ");
+    } catch (error) {
+      return String(value).replace(/[/?=&_+-]+/g, " ");
+    }
+  }
+
+  function addUniqueText(target, value) {
+    const text = String(value || "").trim();
+    if (!text || target.includes(text)) return;
+    target.push(text);
+  }
+
+  function collectTexts(container, selector) {
+    const values = [];
+    container.querySelectorAll(selector).forEach((element) => {
+      addUniqueText(values, textFromElement(element));
+    });
+    return values;
+  }
+
+  function collectUrls(container) {
+    const values = [];
+    if (container.href) addUniqueText(values, urlToSignal(container.href));
+    container.querySelectorAll("a[href]").forEach((anchor) => {
+      addUniqueText(values, urlToSignal(anchor.href));
+    });
+    return values.join(" ");
+  }
+
+  function extractSemanticContext(container) {
+    const titleParts = [];
+    if (container.matches("h1,h2,h3,[class*='title']")) {
+      addUniqueText(titleParts, textFromElement(container));
+    }
+    collectTexts(container, SEMANTIC_TITLE_SELECTOR).forEach((text) => addUniqueText(titleParts, text));
+    if (titleParts.length === 0) addUniqueText(titleParts, textFromElement(container));
+
+    return {
+      title: titleParts.join(" "),
+      tags: collectTexts(container, SEMANTIC_TAG_SELECTOR),
+      categories: collectTexts(container, SEMANTIC_CATEGORY_SELECTOR),
+      channel: collectTexts(container, SEMANTIC_CHANNEL_SELECTOR).join(" "),
+      playlist: collectTexts(container, SEMANTIC_PLAYLIST_SELECTOR).join(" "),
+      url: collectUrls(container)
+    };
+  }
+
+  function semanticContainersFromRoot(rootNode) {
+    const root = normalizeScanRoot(rootNode);
+    const containers = new Set();
+    if (!root || !root.isConnected) return containers;
+
+    const direct = closestSemanticContainer(root);
+    if (direct) containers.add(direct);
+
+    if (isElement(root)) {
+      if (root.matches(SEMANTIC_CONTAINER_SELECTOR) && isSemanticContainerAllowed(root)) containers.add(root);
+      root.querySelectorAll(SEMANTIC_CONTAINER_SELECTOR).forEach((element) => {
+        if (isSemanticContainerAllowed(element)) containers.add(element);
+      });
+    }
+
+    return containers;
+  }
+
+  function clearSemanticResult(container) {
+    if (!container || !container.classList) return;
+    container.classList.remove(helper.SEMANTIC_CLASS);
+    container.style.removeProperty("--kwh-semantic-color");
+    delete container.dataset.kwhSemanticRuleId;
+    delete container.dataset.kwhSemanticRuleIds;
+    delete container.dataset.kwhSemanticRuleName;
+    delete container.dataset.kwhSemanticScore;
+    delete container.dataset.kwhSemanticPriority;
+  }
+
+  function clearSemanticResults(rootNode = document) {
+    const root = rootNode.querySelectorAll ? rootNode : document;
+    root.querySelectorAll(`.${helper.SEMANTIC_CLASS}`).forEach(clearSemanticResult);
+  }
+
+  function applySemanticResult(container, results) {
+    clearSemanticResult(container);
+    if (!results || results.length === 0) return;
+
+    const top = results[0];
+    container.classList.add(helper.SEMANTIC_CLASS);
+    container.style.setProperty("--kwh-semantic-color", top.color);
+    container.dataset.kwhSemanticRuleId = top.ruleId;
+    container.dataset.kwhSemanticRuleIds = results.map((result) => result.ruleId).join(",");
+    container.dataset.kwhSemanticRuleName = top.name;
+    container.dataset.kwhSemanticScore = String(top.score);
+    container.dataset.kwhSemanticPriority = String(top.priority || 0);
+  }
+
+  function semanticMatcherFromResults(results) {
+    const phrases = [];
+    const seen = new Set();
+
+    results.forEach((result) => {
+      (result.hits || [])
+        .filter((hit) => hit.source === "title")
+        .forEach((hit) => {
+          const word = helper.normalizeKeywordText(hit.phrase);
+          const key = `${result.ruleId}:${word.toLowerCase()}`;
+          if (!word || seen.has(key)) return;
+          seen.add(key);
+          phrases.push({
+            id: key,
+            word,
+            color: result.color,
+            enabled: true,
+            priority: Number(result.priority || 0) + Number(hit.weight || 0),
+            semanticRuleId: result.ruleId,
+            semanticRuleName: result.name
+          });
+        });
+    });
+
+    return phrases.length > 0 ? helper.compileKeywordMatcher(phrases) : null;
+  }
+
+  function semanticTitleRoots(container) {
+    const roots = new Set();
+    if (container.matches("h1,h2,h3,[class*='title']")) roots.add(container);
+    container.querySelectorAll(SEMANTIC_TITLE_SELECTOR).forEach((element) => roots.add(element));
+    return roots;
+  }
+
+  function highlightSemanticTitlePhrases(container, results) {
+    const semanticMatcher = semanticMatcherFromResults(results);
+    if (!semanticMatcher) return;
+
+    semanticTitleRoots(container).forEach((titleRoot) => {
+      if (!titleRoot.isConnected || isOwnNode(titleRoot) || closestSkippableElement(titleRoot)) return;
+
+      const walker = document.createTreeWalker(titleRoot, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+          if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_SKIP;
+          if (!node.parentElement || closestSkippableElement(node)) return NodeFilter.FILTER_REJECT;
+          return helper.collectKeywordMatches(node.nodeValue, semanticMatcher).length > 0
+            ? NodeFilter.FILTER_ACCEPT
+            : NodeFilter.FILTER_SKIP;
+        }
+      });
+      const nodesToReplace = [];
+
+      while (walker.nextNode()) {
+        nodesToReplace.push(walker.currentNode);
+      }
+
+      nodesToReplace.forEach((node) => {
+        if (node.isConnected && !closestSkippableElement(node)) {
+          highlightSemanticTextNode(node, semanticMatcher);
+        }
+      });
+    });
+  }
+
+  function applySemanticScan(rootNode) {
+    if (!settings.enabled || !hasEnabledSemanticRules()) return;
+
+    semanticContainersFromRoot(rootNode).forEach((container) => {
+      if (!container.isConnected || isOwnNode(container) || closestSkippableElement(container)) return;
+
+      clearSemanticPhraseHighlights(container);
+      const context = extractSemanticContext(container);
+      const results = helper.evaluatePornhubSemanticRules(context, settings.semanticRules);
+      applySemanticResult(container, results);
+      if (results.length > 0) highlightSemanticTitlePhrases(container, results);
+    });
+
+  }
+
   function getMarkerContainer() {
     let container = document.getElementById(helper.MARKER_CONTAINER_ID);
     if (!container) {
@@ -172,6 +488,156 @@
     );
   }
 
+  function matchQuality(match) {
+    return {
+      priority: Number(match.priority || 0),
+      score: Number(match.score || 0),
+      length: Number(match.length || 0)
+    };
+  }
+
+  function pickTopMatch(matches) {
+    return matches
+      .slice()
+      .sort((a, b) => {
+        const left = matchQuality(a);
+        const right = matchQuality(b);
+        if (right.priority !== left.priority) return right.priority - left.priority;
+        if (right.score !== left.score) return right.score - left.score;
+        return right.length - left.length;
+      })[0];
+  }
+
+  function mergeNearbyMarkerItems(items, gapPercent = 0.15) {
+    const sorted = items.slice().sort((a, b) => a.topPercent - b.topPercent);
+    const merged = [];
+
+    sorted.forEach((item) => {
+      const last = merged[merged.length - 1];
+      if (last && Math.abs(last.topPercent - item.topPercent) <= gapPercent) {
+        last.matches.push(...item.matches);
+        if (!last.targetId && item.targetId) last.targetId = item.targetId;
+        last.topPercent = Math.min(last.topPercent, item.topPercent);
+        last.color = pickTopMatch(last.matches).color;
+        return;
+      }
+
+      merged.push({
+        topPercent: item.topPercent,
+        color: item.color,
+        matches: [...item.matches],
+        targetId: item.targetId || ""
+      });
+    });
+
+    return merged;
+  }
+
+  function topPercentForElement(element, totalHeight) {
+    const rect = element.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) return null;
+
+    const top = Math.max(0, window.scrollY + rect.top);
+    return Math.min(99.8, (top / totalHeight) * 100);
+  }
+
+  function ensureMarkerTarget(element) {
+    if (!element.dataset.kwhMarkerTarget) {
+      element.dataset.kwhMarkerTarget = `kwh-target-${Math.random().toString(36).slice(2, 10)}`;
+    }
+    return element.dataset.kwhMarkerTarget;
+  }
+
+  function scrollToMarkerTarget(targetId) {
+    if (!targetId) return;
+    const target = document.querySelector(`[data-kwh-marker-target="${targetId}"]`);
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+  }
+
+  function setMarkerTargetHover(targetId, isHovered) {
+    if (!targetId) return;
+    const target = document.querySelector(`[data-kwh-marker-target="${targetId}"]`);
+    if (!target) return;
+    target.classList.toggle(MARKER_HOVER_CLASS, isHovered);
+  }
+
+  function clearMarkerTargetHover() {
+    document.querySelectorAll(`.${MARKER_HOVER_CLASS}`).forEach((element) => {
+      element.classList.remove(MARKER_HOVER_CLASS);
+    });
+  }
+
+  function markerItemsFromHighlights(totalHeight) {
+    const keywordsById = new Map(settings.keywords.map((keyword) => [keyword.id, keyword]));
+    return Array.from(document.querySelectorAll(`span.${helper.HIGHLIGHT_CLASS}`))
+      .map((element) => {
+        const topPercent = topPercentForElement(element, totalHeight);
+        if (topPercent === null) return null;
+
+        const keyword = keywordsById.get(element.dataset.kwhKeywordId || "");
+        if (!keyword) return null;
+        const primary = {
+          type: "keyword",
+          id: element.dataset.kwhKeywordId || "",
+          word: (keyword && keyword.word) || element.dataset.kwhKeyword || "",
+          color: element.style.backgroundColor || (keyword && keyword.color) || "rgba(255, 255, 0, 0.7)",
+          priority: Number(element.dataset.kwhKeywordPriority || (keyword && keyword.priority) || 0),
+          length: Number(element.dataset.kwhMatchLength || (element.textContent || "").length)
+        };
+        const extraMatches = (element.dataset.kwhExtraKeywordIds || "")
+          .split(",")
+          .map((id) => keywordsById.get(id.trim()))
+          .filter(Boolean)
+          .map((extraKeyword) => ({
+            type: "keyword",
+            id: extraKeyword.id,
+            word: extraKeyword.word,
+            color: extraKeyword.color,
+            priority: Number(extraKeyword.priority || 0),
+            length: (element.textContent || "").length
+          }));
+        const matches = [primary, ...extraMatches];
+        const markerTarget = closestSemanticContainer(element) || element;
+        const targetId = ensureMarkerTarget(markerTarget);
+
+      return {
+        topPercent,
+        color: pickTopMatch(matches).color,
+        matches,
+        targetId
+      };
+      })
+      .filter(Boolean);
+  }
+
+  function markerItemsFromSemanticMatches(totalHeight) {
+    return Array.from(document.querySelectorAll(`.${helper.SEMANTIC_CLASS}`))
+      .map((element) => {
+        const topPercent = topPercentForElement(element, totalHeight);
+        if (topPercent === null) return null;
+
+        const match = {
+          type: "semantic",
+          id: element.dataset.kwhSemanticRuleId || "",
+          name: element.dataset.kwhSemanticRuleName || "",
+          color: element.style.getPropertyValue("--kwh-semantic-color") || "rgba(255, 255, 0, 0.7)",
+          priority: Number(element.dataset.kwhSemanticPriority || 0),
+          score: Number(element.dataset.kwhSemanticScore || 0),
+          length: (element.textContent || "").length
+        };
+        const targetId = ensureMarkerTarget(element);
+
+        return {
+          topPercent,
+          color: match.color,
+          matches: [match],
+          targetId
+        };
+      })
+      .filter(Boolean);
+  }
+
   function regenerateMarkers() {
     if (!settings.enabled) {
       clearMarkers();
@@ -184,20 +650,32 @@
       return;
     }
 
-    const highlights = Array.from(document.querySelectorAll(`span.${helper.HIGHLIGHT_CLASS}`));
     const container = getMarkerContainer();
     const fragment = document.createDocumentFragment();
+    clearMarkerTargetHover();
+    const markerItems = mergeNearbyMarkerItems([
+      ...markerItemsFromHighlights(totalHeight),
+      ...markerItemsFromSemanticMatches(totalHeight)
+    ]);
 
-    highlights.forEach((element) => {
-      const rect = element.getBoundingClientRect();
-      if (rect.width === 0 && rect.height === 0) return;
-
-      const top = Math.max(0, window.scrollY + rect.top);
-      const topPercent = Math.min(99.8, (top / totalHeight) * 100);
+    markerItems.forEach((item) => {
       const marker = document.createElement("div");
       marker.className = "kwh-scroll-marker";
-      marker.style.top = `${topPercent}%`;
-      marker.style.backgroundColor = element.style.backgroundColor || "rgba(255, 255, 0, 0.7)";
+      marker.style.top = `${item.topPercent}%`;
+      marker.style.height = `${Math.min(6, 2 + item.matches.length)}px`;
+      marker.style.backgroundColor = item.color;
+      marker.dataset.kwhTargetId = item.targetId || "";
+
+      marker.addEventListener("click", () => {
+        scrollToMarkerTarget(marker.dataset.kwhTargetId);
+      });
+      marker.addEventListener("mouseenter", () => {
+        setMarkerTargetHover(marker.dataset.kwhTargetId, true);
+      });
+      marker.addEventListener("mouseleave", () => {
+        setMarkerTargetHover(marker.dataset.kwhTargetId, false);
+      });
+
       fragment.appendChild(marker);
     });
 
@@ -208,7 +686,25 @@
     const countsById = new Map();
     document.querySelectorAll(`span.${helper.HIGHLIGHT_CLASS}`).forEach((span) => {
       const keywordId = span.dataset.kwhKeywordId || "";
-      countsById.set(keywordId, (countsById.get(keywordId) || 0) + 1);
+      if (keywordId) countsById.set(keywordId, (countsById.get(keywordId) || 0) + 1);
+
+      (span.dataset.kwhExtraKeywordIds || "")
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean)
+        .forEach((id) => {
+          countsById.set(id, (countsById.get(id) || 0) + 1);
+        });
+    });
+    const semanticCountsById = new Map();
+    document.querySelectorAll(`.${helper.SEMANTIC_CLASS}`).forEach((element) => {
+      (element.dataset.kwhSemanticRuleIds || element.dataset.kwhSemanticRuleId || "")
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean)
+        .forEach((id) => {
+          semanticCountsById.set(id, (semanticCountsById.get(id) || 0) + 1);
+        });
     });
 
     const keywords = settings.keywords.map((keyword) => ({
@@ -218,11 +714,21 @@
       enabled: keyword.enabled !== false,
       count: countsById.get(keyword.id) || 0
     }));
+    const semanticRules = (settings.semanticRules || []).map((rule) => ({
+      id: rule.id,
+      name: rule.name,
+      color: rule.color,
+      enabled: rule.enabled !== false,
+      priority: Number(rule.priority || 0),
+      count: semanticCountsById.get(rule.id) || 0
+    }));
 
     return {
       enabled: settings.enabled,
       total: keywords.reduce((sum, keyword) => sum + keyword.count, 0),
-      keywords
+      keywords,
+      semanticTotal: semanticRules.reduce((sum, rule) => sum + rule.count, 0),
+      semanticRules
     };
   }
 
@@ -232,7 +738,7 @@
     clearTimeout(scanTimer);
     scanTimer = null;
 
-    if (!settings.enabled || !matcher) {
+    if (!settings.enabled) {
       regenerateMarkers();
       return;
     }
@@ -241,9 +747,13 @@
       const effectiveRoots = roots.length > 0 ? roots : [document.body];
       const shouldScanBody = effectiveRoots.some((root) => root === document.body || root === document.documentElement);
       if (shouldScanBody) {
-        highlightTextNodes(document.body);
+        if (matcher) highlightTextNodes(document.body);
+        applySemanticScan(document.body);
       } else {
-        effectiveRoots.forEach((root) => highlightTextNodes(root));
+        effectiveRoots.forEach((root) => {
+          if (matcher) highlightTextNodes(root);
+          applySemanticScan(root);
+        });
       }
       regenerateMarkers();
     });
@@ -260,7 +770,9 @@
     clearTimeout(markerTimer);
     markerTimer = setTimeout(() => {
       markerTimer = null;
-      runWithoutObserver(regenerateMarkers);
+      runWithoutObserver(() => {
+        regenerateMarkers();
+      });
     }, 150);
   }
 
@@ -313,9 +825,11 @@
 
     runWithoutObserver(() => {
       clearHighlights();
+      clearSemanticResults();
       clearMarkers();
       if (settings.enabled) {
-        highlightTextNodes(document.body);
+        if (matcher) highlightTextNodes(document.body);
+        applySemanticScan(document.body);
         regenerateMarkers();
       }
     });
@@ -383,6 +897,7 @@
       });
 
     window.addEventListener("resize", scheduleMarkerRefresh, { passive: true });
+    window.addEventListener("scroll", scheduleMarkerRefresh, { passive: true });
     window.addEventListener("load", scheduleMarkerRefresh, { once: true });
   }
 
