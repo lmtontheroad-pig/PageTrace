@@ -65,6 +65,7 @@
     "[class*='playlist'] a"
   ].join(",");
   const MARKER_HOVER_CLASS = "kwh-marker-target-hover";
+  const MARKER_THICKNESS_SCALE = 2 / 3;
 
   let settings = helper.normalizeSettings();
   let matcher = null;
@@ -746,6 +747,11 @@
       .filter(Boolean);
   }
 
+  function markerHeightForMatchCount(matchCount) {
+    const baseHeight = Math.min(7, 2 + matchCount);
+    return Math.max(1.5, baseHeight * MARKER_THICKNESS_SCALE);
+  }
+
   function regenerateMarkers() {
     if (!settings.enabled) {
       clearMarkers();
@@ -771,7 +777,7 @@
       const marker = document.createElement("div");
       marker.className = "kwh-scroll-marker";
       marker.style.top = `${item.topPercent}%`;
-      marker.style.height = `${Math.min(7, 2 + matches.length)}px`;
+      marker.style.height = `${markerHeightForMatchCount(matches.length).toFixed(2)}px`;
       marker.dataset.kwhTargetIds = (item.targetIds || []).join(",");
       marker.dataset.kwhMatchCount = String(matches.length);
 
