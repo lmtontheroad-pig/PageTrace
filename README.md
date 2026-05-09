@@ -24,6 +24,13 @@ It highlights configured text matches, marks hit positions on the right side of 
 .
 ├── manifest.json
 ├── README.md
+├── assets/
+│   └── icons/
+│       ├── icon16.png
+│       ├── icon32.png
+│       ├── icon48.png
+│       ├── icon128.png
+│       └── pagetrace-icon.svg
 ├── docs/
 │   └── local-loading.md
 ├── src/

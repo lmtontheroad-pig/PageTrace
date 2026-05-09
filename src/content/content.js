@@ -363,6 +363,7 @@
     delete container.dataset.kwhSemanticRuleId;
     delete container.dataset.kwhSemanticRuleIds;
     delete container.dataset.kwhSemanticRuleName;
+    delete container.dataset.kwhSemanticMatches;
     delete container.dataset.kwhSemanticScore;
     delete container.dataset.kwhSemanticPriority;
   }
@@ -382,6 +383,13 @@
     container.dataset.kwhSemanticRuleId = top.ruleId;
     container.dataset.kwhSemanticRuleIds = results.map((result) => result.ruleId).join(",");
     container.dataset.kwhSemanticRuleName = top.name;
+    container.dataset.kwhSemanticMatches = JSON.stringify(results.map((result) => ({
+      id: result.ruleId,
+      name: result.name,
+      color: result.color,
+      priority: Number(result.priority || 0),
+      score: Number(result.score || 0)
+    })));
     container.dataset.kwhSemanticScore = String(top.score);
     container.dataset.kwhSemanticPriority = String(top.priority || 0);
   }
@@ -492,20 +500,79 @@
     return {
       priority: Number(match.priority || 0),
       score: Number(match.score || 0),
-      length: Number(match.length || 0)
+      length: Number(match.length || 0),
+      typeRank: match.type === "keyword" ? 2 : 1,
+      order: Number(match.order || 0)
     };
   }
 
-  function pickTopMatch(matches) {
-    return matches
-      .slice()
-      .sort((a, b) => {
-        const left = matchQuality(a);
-        const right = matchQuality(b);
-        if (right.priority !== left.priority) return right.priority - left.priority;
-        if (right.score !== left.score) return right.score - left.score;
-        return right.length - left.length;
-      })[0];
+  function compareMarkerMatches(a, b) {
+    const left = matchQuality(a);
+    const right = matchQuality(b);
+    if (right.priority !== left.priority) return right.priority - left.priority;
+    if (right.typeRank !== left.typeRank) return right.typeRank - left.typeRank;
+    if (right.score !== left.score) return right.score - left.score;
+    if (right.length !== left.length) return right.length - left.length;
+    return left.order - right.order;
+  }
+
+  function markerMatchKey(match) {
+    return [
+      match.targetId || "",
+      match.type || "match",
+      match.id || match.name || match.word || "",
+      match.color || ""
+    ].join(":");
+  }
+
+  function dedupeMarkerMatches(matches) {
+    const byKey = new Map();
+    (matches || []).forEach((match, index) => {
+      if (!match || !match.color) return;
+      const normalized = {
+        ...match,
+        order: Number(match.order || index)
+      };
+      const key = markerMatchKey(normalized);
+      const existing = byKey.get(key);
+      if (!existing || compareMarkerMatches(normalized, existing) < 0) {
+        byKey.set(key, normalized);
+      }
+    });
+    return Array.from(byKey.values()).sort(compareMarkerMatches);
+  }
+
+  function uniqueValues(values) {
+    return Array.from(new Set((values || []).filter(Boolean)));
+  }
+
+  function mergeMarkerItemsByTarget(items) {
+    const grouped = new Map();
+
+    items.forEach((item) => {
+      const targetKey = item.targetIds && item.targetIds.length > 0
+        ? item.targetIds.join(",")
+        : `top:${item.topPercent.toFixed(3)}`;
+      const existing = grouped.get(targetKey);
+
+      if (existing) {
+        existing.topPercent = Math.min(existing.topPercent, item.topPercent);
+        existing.matches.push(...item.matches);
+        existing.targetIds = uniqueValues([...existing.targetIds, ...item.targetIds]);
+        return;
+      }
+
+      grouped.set(targetKey, {
+        topPercent: item.topPercent,
+        matches: [...item.matches],
+        targetIds: uniqueValues(item.targetIds)
+      });
+    });
+
+    return Array.from(grouped.values()).map((item) => ({
+      ...item,
+      matches: dedupeMarkerMatches(item.matches)
+    }));
   }
 
   function mergeNearbyMarkerItems(items, gapPercent = 0.15) {
@@ -516,17 +583,16 @@
       const last = merged[merged.length - 1];
       if (last && Math.abs(last.topPercent - item.topPercent) <= gapPercent) {
         last.matches.push(...item.matches);
-        if (!last.targetId && item.targetId) last.targetId = item.targetId;
+        last.matches = dedupeMarkerMatches(last.matches);
+        last.targetIds = uniqueValues([...last.targetIds, ...item.targetIds]);
         last.topPercent = Math.min(last.topPercent, item.topPercent);
-        last.color = pickTopMatch(last.matches).color;
         return;
       }
 
       merged.push({
         topPercent: item.topPercent,
-        color: item.color,
-        matches: [...item.matches],
-        targetId: item.targetId || ""
+        matches: dedupeMarkerMatches(item.matches),
+        targetIds: uniqueValues(item.targetIds)
       });
     });
 
@@ -548,18 +614,27 @@
     return element.dataset.kwhMarkerTarget;
   }
 
-  function scrollToMarkerTarget(targetId) {
-    if (!targetId) return;
-    const target = document.querySelector(`[data-kwh-marker-target="${targetId}"]`);
+  function parseTargetIds(value) {
+    if (Array.isArray(value)) return value.filter(Boolean);
+    return String(value || "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+  }
+
+  function scrollToMarkerTarget(targetIds) {
+    const firstTargetId = parseTargetIds(targetIds)[0];
+    if (!firstTargetId) return;
+    const target = document.querySelector(`[data-kwh-marker-target="${firstTargetId}"]`);
     if (!target) return;
     target.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
   }
 
-  function setMarkerTargetHover(targetId, isHovered) {
-    if (!targetId) return;
-    const target = document.querySelector(`[data-kwh-marker-target="${targetId}"]`);
-    if (!target) return;
-    target.classList.toggle(MARKER_HOVER_CLASS, isHovered);
+  function setMarkerTargetHover(targetIds, isHovered) {
+    parseTargetIds(targetIds).forEach((targetId) => {
+      const target = document.querySelector(`[data-kwh-marker-target="${targetId}"]`);
+      if (target) target.classList.toggle(MARKER_HOVER_CLASS, isHovered);
+    });
   }
 
   function clearMarkerTargetHover() {
@@ -569,10 +644,11 @@
   }
 
   function markerItemsFromHighlights(totalHeight) {
-    const keywordsById = new Map(settings.keywords.map((keyword) => [keyword.id, keyword]));
+    const keywordsById = new Map(settings.keywords.map((keyword, index) => [keyword.id, { ...keyword, order: index }]));
     return Array.from(document.querySelectorAll(`span.${helper.HIGHLIGHT_CLASS}`))
       .map((element) => {
-        const topPercent = topPercentForElement(element, totalHeight);
+        const markerTarget = closestSemanticContainer(element) || element;
+        const topPercent = topPercentForElement(markerTarget, totalHeight);
         if (topPercent === null) return null;
 
         const keyword = keywordsById.get(element.dataset.kwhKeywordId || "");
@@ -583,7 +659,8 @@
           word: (keyword && keyword.word) || element.dataset.kwhKeyword || "",
           color: element.style.backgroundColor || (keyword && keyword.color) || "rgba(255, 255, 0, 0.7)",
           priority: Number(element.dataset.kwhKeywordPriority || (keyword && keyword.priority) || 0),
-          length: Number(element.dataset.kwhMatchLength || (element.textContent || "").length)
+          length: Number(element.dataset.kwhMatchLength || (element.textContent || "").length),
+          order: Number(keyword.order || 0)
         };
         const extraMatches = (element.dataset.kwhExtraKeywordIds || "")
           .split(",")
@@ -595,20 +672,57 @@
             word: extraKeyword.word,
             color: extraKeyword.color,
             priority: Number(extraKeyword.priority || 0),
-            length: (element.textContent || "").length
+            length: (element.textContent || "").length,
+            order: Number(extraKeyword.order || 0)
           }));
         const matches = [primary, ...extraMatches];
-        const markerTarget = closestSemanticContainer(element) || element;
         const targetId = ensureMarkerTarget(markerTarget);
 
       return {
         topPercent,
-        color: pickTopMatch(matches).color,
-        matches,
-        targetId
+        matches: dedupeMarkerMatches(matches.map((match) => ({
+          ...match,
+          targetId
+        }))),
+        targetIds: [targetId]
       };
       })
       .filter(Boolean);
+  }
+
+  function semanticMatchesFromElement(element) {
+    if (element.dataset.kwhSemanticMatches) {
+      try {
+        const parsed = JSON.parse(element.dataset.kwhSemanticMatches);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .filter((item) => item && item.id)
+            .map((item, index) => ({
+              type: "semantic",
+              id: item.id,
+              name: item.name || "",
+              color: item.color || "rgba(255, 255, 0, 0.7)",
+              priority: Number(item.priority || 0),
+              score: Number(item.score || 0),
+              length: (element.textContent || "").length,
+              order: index
+            }));
+        }
+      } catch (error) {
+        // Ignore malformed old attributes and fall through to the current top result.
+      }
+    }
+
+    return [{
+      type: "semantic",
+      id: element.dataset.kwhSemanticRuleId || "",
+      name: element.dataset.kwhSemanticRuleName || "",
+      color: element.style.getPropertyValue("--kwh-semantic-color") || "rgba(255, 255, 0, 0.7)",
+      priority: Number(element.dataset.kwhSemanticPriority || 0),
+      score: Number(element.dataset.kwhSemanticScore || 0),
+      length: (element.textContent || "").length,
+      order: 0
+    }];
   }
 
   function markerItemsFromSemanticMatches(totalHeight) {
@@ -617,22 +731,16 @@
         const topPercent = topPercentForElement(element, totalHeight);
         if (topPercent === null) return null;
 
-        const match = {
-          type: "semantic",
-          id: element.dataset.kwhSemanticRuleId || "",
-          name: element.dataset.kwhSemanticRuleName || "",
-          color: element.style.getPropertyValue("--kwh-semantic-color") || "rgba(255, 255, 0, 0.7)",
-          priority: Number(element.dataset.kwhSemanticPriority || 0),
-          score: Number(element.dataset.kwhSemanticScore || 0),
-          length: (element.textContent || "").length
-        };
+        const matches = semanticMatchesFromElement(element);
         const targetId = ensureMarkerTarget(element);
 
         return {
           topPercent,
-          color: match.color,
-          matches: [match],
-          targetId
+          matches: dedupeMarkerMatches(matches.map((match) => ({
+            ...match,
+            targetId
+          }))),
+          targetIds: [targetId]
         };
       })
       .filter(Boolean);
@@ -653,27 +761,40 @@
     const container = getMarkerContainer();
     const fragment = document.createDocumentFragment();
     clearMarkerTargetHover();
-    const markerItems = mergeNearbyMarkerItems([
+    const markerItems = mergeNearbyMarkerItems(mergeMarkerItemsByTarget([
       ...markerItemsFromHighlights(totalHeight),
       ...markerItemsFromSemanticMatches(totalHeight)
-    ]);
+    ]));
 
     markerItems.forEach((item) => {
+      const matches = dedupeMarkerMatches(item.matches);
       const marker = document.createElement("div");
       marker.className = "kwh-scroll-marker";
       marker.style.top = `${item.topPercent}%`;
-      marker.style.height = `${Math.min(6, 2 + item.matches.length)}px`;
-      marker.style.backgroundColor = item.color;
-      marker.dataset.kwhTargetId = item.targetId || "";
+      marker.style.height = `${Math.min(7, 2 + matches.length)}px`;
+      marker.dataset.kwhTargetIds = (item.targetIds || []).join(",");
+      marker.dataset.kwhMatchCount = String(matches.length);
 
-      marker.addEventListener("click", () => {
-        scrollToMarkerTarget(marker.dataset.kwhTargetId);
-      });
-      marker.addEventListener("mouseenter", () => {
-        setMarkerTargetHover(marker.dataset.kwhTargetId, true);
-      });
       marker.addEventListener("mouseleave", () => {
-        setMarkerTargetHover(marker.dataset.kwhTargetId, false);
+        clearMarkerTargetHover();
+      });
+
+      matches.forEach((match) => {
+        const segment = document.createElement("span");
+        segment.className = "kwh-scroll-marker-segment";
+        segment.style.backgroundColor = match.color;
+        segment.dataset.kwhTargetId = match.targetId || "";
+
+        segment.addEventListener("click", (event) => {
+          event.stopPropagation();
+          scrollToMarkerTarget(segment.dataset.kwhTargetId);
+        });
+        segment.addEventListener("mouseenter", () => {
+          clearMarkerTargetHover();
+          setMarkerTargetHover(segment.dataset.kwhTargetId, true);
+        });
+
+        marker.appendChild(segment);
       });
 
       fragment.appendChild(marker);

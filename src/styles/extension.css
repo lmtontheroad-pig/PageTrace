@@ -24,11 +24,19 @@ span.kwh-highlight {
   border-radius: 1px 0 0 1px;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18);
   cursor: pointer;
+  display: flex;
   height: 2px;
+  overflow: hidden;
   pointer-events: auto;
   position: absolute;
   right: 0;
   width: 56px;
+}
+
+#kwh-scroll-marker-container[data-kwh-root] .kwh-scroll-marker-segment {
+  flex: 1 1 0;
+  height: 100%;
+  min-width: 0;
 }
 
 #kwh-scroll-marker-container[data-kwh-root] .kwh-scroll-marker:hover {

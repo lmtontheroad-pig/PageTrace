@@ -4,13 +4,25 @@
   "short_name": "PageTrace",
   "version": "1.0.0",
   "description": "Highlights configured keywords on matched pages and adds right-side scroll markers.",
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "32": "assets/icons/icon32.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
+  },
   "permissions": ["storage"],
   "background": {
     "service_worker": "src/background/service-worker.js"
   },
   "action": {
     "default_title": "PageTrace",
-    "default_popup": "src/pages/popup.html"
+    "default_popup": "src/pages/popup.html",
+    "default_icon": {
+      "16": "assets/icons/icon16.png",
+      "32": "assets/icons/icon32.png",
+      "48": "assets/icons/icon48.png",
+      "128": "assets/icons/icon128.png"
+    }
   },
   "options_page": "src/pages/options.html",
   "content_scripts": [
