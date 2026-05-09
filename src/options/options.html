@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>关键词高亮设置</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+  </head>
+  <body class="kw-extension-page kw-options-page">
+    <main class="kw-page-shell">
+      <header class="kw-page-header">
+        <div>
+          <h1>关键词设置</h1>
+          <p>管理匹配词、颜色和启用状态。</p>
+        </div>
+        <button id="reset-defaults" class="kw-button kw-button-secondary" type="button">恢复默认</button>
+      </header>
+
+      <section class="kw-panel">
+        <form id="add-keyword-form" class="kw-add-form">
+          <label>
+            <span>关键词</span>
+            <input id="new-word" type="text" autocomplete="off" placeholder="Double Penetration">
+          </label>
+          <label>
+            <span>颜色</span>
+            <input id="new-color" type="text" autocomplete="off" value="rgba(255, 255, 0, 0.6)">
+          </label>
+          <button class="kw-button" type="submit">新增</button>
+        </form>
+      </section>
+
+      <section class="kw-panel">
+        <div class="kw-list-header">
+          <span>启用</span>
+          <span>关键词</span>
+          <span>颜色</span>
+          <span>操作</span>
+        </div>
+        <div id="keyword-list" class="kw-keyword-list"></div>
+      </section>
+
+      <footer class="kw-footer">
+        <span id="status-text" role="status"></span>
+        <button id="save-settings" class="kw-button" type="button">保存配置</button>
+      </footer>
+    </main>
+
+    <template id="keyword-row-template">
+      <div class="kw-keyword-row">
+        <label class="kw-checkbox-cell">
+          <input class="keyword-enabled" type="checkbox">
+        </label>
+        <input class="keyword-word" type="text" autocomplete="off">
+        <input class="keyword-color" type="text" autocomplete="off">
+        <button class="kw-icon-button keyword-delete" type="button" title="删除" aria-label="删除">×</button>
+      </div>
+    </template>
+
+    <script src="../shared/shared.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>

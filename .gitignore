@@ -1,0 +1,21 @@
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Dependency and build output directories
+node_modules/
+dist/
+build/
+coverage/
+
+# Logs and local-only files
+*.log
+*.tmp
+*.local
+
+# Packaged extension archives
+*.crx
+*.pem
+*.zip
