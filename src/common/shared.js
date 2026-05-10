@@ -3,6 +3,7 @@
 
   const STORAGE_KEY = "keywordHighlighterSettings";
   const STORAGE_AREA = "sync";
+  const SETTINGS_SCHEMA_VERSION = 2;
 
   const HIGHLIGHT_CLASS = "kwh-highlight";
   const SEMANTIC_CLASS = "kwh-semantic-match";
@@ -26,7 +27,8 @@
     { id: "kw-compilation", word: "compilation", color: "rgba(255, 20, 20, 0.6)", semanticColor: "rgba(255, 20, 20, 0.6)", enabled: true, priority: 30 },
     { id: "kw-anal", word: "anal", color: "rgba(255, 255, 0, 0.6)", semanticColor: "rgba(255, 255, 0, 0.6)", enabled: true, priority: 40 },
     { id: "kw-double-penetration", word: "Double Penetration", color: "rgba(0, 255, 255, 0.6)", semanticColor: "rgba(0, 255, 255, 0.6)", enabled: true, priority: 70 },
-    { id: "kw-cuckold", word: "cuckold", color: "rgba(0, 200, 0, 0.5)", semanticColor: "rgba(0, 200, 0, 0.5)", enabled: true, priority: 60 }
+    { id: "kw-cuckold", word: "cuckold", color: "rgba(0, 200, 0, 0.5)", semanticColor: "rgba(0, 200, 0, 0.5)", enabled: true, priority: 60 },
+    { id: "kw-high-heels", word: "high heels", color: "rgba(255, 105, 180, 0.65)", semanticColor: "rgba(255, 105, 180, 0.65)", enabled: true, priority: 45 }
   ];
 
   const DEFAULT_SEMANTIC_RULES = [
@@ -159,13 +161,100 @@
       excludePhrases: [
         "cuckoo"
       ]
+    },
+    {
+      id: "sem_high_heels",
+      keywordId: "kw-high-heels",
+      name: "高跟鞋与靴子类",
+      color: "rgba(255, 105, 180, 0.65)",
+      priority: 45,
+      threshold: 3,
+      enabled: true,
+      strongTitlePhrases: [
+        "high heels",
+        "high heel",
+        "high heel boots",
+        "heels boots",
+        "stiletto heels",
+        "stilettos",
+        "platform heels",
+        "platform boots",
+        "thigh high boots",
+        "knee high boots",
+        "leather boots",
+        "latex boots",
+        "black boots",
+        "red heels",
+        "wearing heels",
+        "in heels",
+        "heels on",
+        "boots on"
+      ],
+      weakTitlePhrases: [
+        "heels",
+        "boots",
+        "stiletto",
+        "pumps",
+        "platforms",
+        "thigh highs",
+        "knee highs",
+        "leather outfit",
+        "latex outfit",
+        "stockings",
+        "pantyhose",
+        "nylons",
+        "legs"
+      ],
+      tagPhrases: [
+        "high heels",
+        "heels",
+        "boots",
+        "high heel boots",
+        "stilettos",
+        "platform heels",
+        "thigh high boots",
+        "knee high boots",
+        "leather boots",
+        "latex boots",
+        "stockings",
+        "pantyhose",
+        "nylons",
+        "legs",
+        "feet",
+        "foot fetish"
+      ],
+      categoryPhrases: [
+        "high heels",
+        "heels",
+        "boots",
+        "feet",
+        "foot fetish",
+        "legs",
+        "stockings"
+      ],
+      excludePhrases: [
+        "boot camp",
+        "reboot",
+        "rebooted",
+        "computer boots",
+        "boots pharmacy",
+        "cowboy boots review",
+        "walking boots",
+        "hiking boots",
+        "snow boots",
+        "work boots",
+        "booty",
+        "heel pain",
+        "achilles heel"
+      ]
     }
   ];
   const SEMANTIC_RULE_KEYWORD_IDS = {
     sem_compilation: "kw-compilation",
     sem_anal: "kw-anal",
     sem_double_penetration: "kw-double-penetration",
-    sem_cuckold: "kw-cuckold"
+    sem_cuckold: "kw-cuckold",
+    sem_high_heels: "kw-high-heels"
   };
 
   function cloneDefaultKeywords() {
@@ -204,6 +293,19 @@
     return value
       .map(normalizeKeywordText)
       .filter(Boolean);
+  }
+
+  function appendMissingDefaultItems(items, defaults) {
+    const result = [...items];
+    const existingIds = new Set(result.map((item) => item && item.id).filter(Boolean));
+
+    defaults.forEach((item) => {
+      if (!existingIds.has(item.id)) {
+        result.push(item);
+      }
+    });
+
+    return result;
   }
 
   function createKeyword(word, color, semanticColor) {
@@ -258,15 +360,22 @@
 
   function normalizeSettings(rawSettings) {
     const source = rawSettings && typeof rawSettings === "object" ? rawSettings : {};
+    const shouldMergeMissingDefaults = numberOrFallback(source.settingsVersion, 0) < SETTINGS_SCHEMA_VERSION;
     const rawKeywords = Array.isArray(source.keywords) ? source.keywords : cloneDefaultKeywords();
-    const keywords = rawKeywords
+    const keywordSource = shouldMergeMissingDefaults
+      ? appendMissingDefaultItems(rawKeywords, cloneDefaultKeywords())
+      : rawKeywords;
+    const keywords = keywordSource
       .map(normalizeKeywordItem)
       .filter(Boolean);
     const rawSemanticRules = Array.isArray(source.semanticRules)
       ? source.semanticRules
       : cloneDefaultSemanticRules();
+    const semanticRuleSource = shouldMergeMissingDefaults
+      ? appendMissingDefaultItems(rawSemanticRules, cloneDefaultSemanticRules())
+      : rawSemanticRules;
     const keywordsById = new Map(keywords.map((keyword) => [keyword.id, keyword]));
-    const semanticRules = rawSemanticRules
+    const semanticRules = semanticRuleSource
       .map(normalizeSemanticRuleItem)
       .filter(Boolean)
       .map((rule) => {
@@ -279,6 +388,7 @@
       });
 
     return {
+      settingsVersion: SETTINGS_SCHEMA_VERSION,
       enabled: source.enabled !== false,
       keywords: keywords.length > 0 ? keywords : cloneDefaultKeywords(),
       semanticRules
