@@ -57,7 +57,7 @@ span.kwh-highlight {
 
 .kw-page-shell {
   margin: 0 auto;
-  max-width: 920px;
+  max-width: 1080px;
   padding: 28px;
 }
 
@@ -94,8 +94,8 @@ span.kwh-highlight {
 .kw-add-form {
   align-items: end;
   display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(180px, 1fr) minmax(320px, 1.3fr) minmax(320px, 1.3fr) auto;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 1fr) minmax(232px, 1.2fr) minmax(232px, 1.2fr) auto;
   padding: 16px;
 }
 
@@ -120,15 +120,17 @@ span.kwh-highlight {
 .kw-color-editor {
   align-items: center;
   display: grid;
-  gap: 8px;
-  grid-template-columns: 48px repeat(3, minmax(64px, 1fr));
+  gap: 6px;
+  grid-template-columns: 44px repeat(3, minmax(56px, 1fr));
+  min-width: 0;
 }
 
 .kw-color-editor label {
   align-items: center;
   display: grid;
   gap: 4px;
-  grid-template-columns: 16px minmax(0, 1fr);
+  grid-template-columns: 14px minmax(0, 1fr);
+  min-width: 0;
 }
 
 .kw-color-editor label span {
@@ -144,7 +146,7 @@ span.kwh-highlight {
   cursor: pointer;
   height: 36px;
   padding: 3px;
-  width: 48px;
+  width: 44px;
 }
 
 .kw-color-editor input[type="number"] {
@@ -152,15 +154,17 @@ span.kwh-highlight {
   border-radius: 6px;
   font: inherit;
   min-height: 36px;
-  padding: 7px 8px;
+  min-width: 0;
+  padding: 7px 6px;
   width: 100%;
 }
 
 .kw-list-header,
 .kw-keyword-row {
   display: grid;
-  gap: 12px;
-  grid-template-columns: 56px minmax(160px, 1fr) minmax(320px, 1.3fr) minmax(320px, 1.3fr) 64px;
+  gap: 10px;
+  grid-template-columns: 48px minmax(150px, 1fr) minmax(232px, 1.25fr) minmax(232px, 1.25fr) 52px;
+  min-width: 0;
 }
 
 .kw-list-header {
