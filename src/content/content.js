@@ -66,6 +66,8 @@
   ].join(",");
   const MARKER_HOVER_CLASS = "kwh-marker-target-hover";
   const MARKER_THICKNESS_SCALE = 2 / 3;
+  const MARKER_FULL_WIDTH_PX = 112;
+  const VIDEOS_PER_MARKER_ROW = 4;
 
   let settings = helper.normalizeSettings();
   let matcher = null;
@@ -752,6 +754,11 @@
     return Math.max(1.5, baseHeight * MARKER_THICKNESS_SCALE);
   }
 
+  function markerWidthForTargetCount(targetCount) {
+    const visibleTargetCount = Math.max(1, Math.min(VIDEOS_PER_MARKER_ROW, targetCount || 1));
+    return (MARKER_FULL_WIDTH_PX * visibleTargetCount) / VIDEOS_PER_MARKER_ROW;
+  }
+
   function regenerateMarkers() {
     if (!settings.enabled) {
       clearMarkers();
@@ -774,11 +781,14 @@
 
     markerItems.forEach((item) => {
       const matches = dedupeMarkerMatches(item.matches);
+      const targetIds = uniqueValues(item.targetIds);
       const marker = document.createElement("div");
       marker.className = "kwh-scroll-marker";
       marker.style.top = `${item.topPercent}%`;
       marker.style.height = `${markerHeightForMatchCount(matches.length).toFixed(2)}px`;
-      marker.dataset.kwhTargetIds = (item.targetIds || []).join(",");
+      marker.style.width = `${markerWidthForTargetCount(targetIds.length).toFixed(2)}px`;
+      marker.dataset.kwhTargetIds = targetIds.join(",");
+      marker.dataset.kwhTargetCount = String(targetIds.length);
       marker.dataset.kwhMatchCount = String(matches.length);
 
       marker.addEventListener("mouseleave", () => {
